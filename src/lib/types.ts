@@ -10,6 +10,8 @@ export interface MoveNode {
   children: MoveNode[];
   comment?: string;
   nags: string[];
+  /** True when this node is the final move of at least one line in the PGN. */
+  isLineEnd?: boolean;
 }
 
 export interface ParsedGame {

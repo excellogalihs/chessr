@@ -5,6 +5,7 @@ import {
   allLeaves,
   formatDue,
   formatRelative,
+  lineQuizPositions,
   masteryOf,
   parsePgn,
   pathTo,
@@ -14,6 +15,7 @@ import {
   sideName,
   turnOf,
 } from '../lib/chess';
+import { pieceSrc } from '../lib/assets';
 import { ChessBoard } from './ChessBoard';
 import { ProgressRing } from './ProgressRing';
 import {
@@ -44,7 +46,7 @@ const LEVEL_LABELS = ['New', 'Learning', 'Familiar', 'Solid', 'Strong', 'Mastere
 
 function firstLeaf(node: MoveNode): MoveNode {
   let cursor = node;
-  while (cursor.children.length > 0) {
+  while (!cursor.isLineEnd && cursor.children.length > 0) {
     cursor = cursor.children[0] as MoveNode;
   }
   return cursor;
@@ -97,7 +99,7 @@ export function Browse({ repertoire, onBack, onTrain, onDelete, onToast }: Brows
       const path = pathTo(leaf);
       return (
         path.some((node) => node.san.toLowerCase().includes(query)) ||
-        (leaf.comment ?? '').toLowerCase().includes(query)
+        path.some((node) => (node.comment ?? '').toLowerCase().includes(query))
       );
     });
   }, [leaves, search]);
@@ -147,10 +149,7 @@ export function Browse({ repertoire, onBack, onTrain, onDelete, onToast }: Brows
   };
 
   const lineMastery = (leaf: MoveNode) => {
-    const path = [parsed.root, ...pathTo(leaf)];
-    const linePositions = path.filter(
-      (node) => node.children.length > 0 && turnOf(node.fen) === repertoire.color,
-    );
+    const linePositions = lineQuizPositions(leaf, repertoire.color);
     return masteryOf(
       linePositions.map((node) => ({ node, moves: node.children })),
       repertoire.stats,
@@ -166,7 +165,7 @@ export function Browse({ repertoire, onBack, onTrain, onDelete, onToast }: Brows
         </button>
         <div className="browse-title">
           <span className={`side-badge ${repertoire.color}`}>
-            <img src={`/pieces/staunty/${repertoire.color}K.svg`} alt="" />
+            <img src={pieceSrc(repertoire.color, 'k')} alt="" />
           </span>
           <div>
             <h1>{repertoire.name}</h1>

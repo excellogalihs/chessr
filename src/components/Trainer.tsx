@@ -11,6 +11,7 @@ import {
   DAY,
   allLeaves,
   duePositions,
+  lineQuizPositions,
   lineSnippet,
   parsePgn,
   pathTo,
@@ -22,6 +23,7 @@ import {
   turnOf,
   otherColor,
 } from '../lib/chess';
+import { pieceSrc } from '../lib/assets';
 import { playSound } from '../lib/sound';
 import { ChessBoard, type BoardMove } from './ChessBoard';
 import { ProgressRing } from './ProgressRing';
@@ -71,7 +73,6 @@ interface TrainerProps {
 }
 
 const REVIEW_LIMIT = 16;
-const TRAIN_LIMIT = 20;
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -84,45 +85,19 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-function lineHasUnanswered(
-  leaf: MoveNode,
-  color: Repertoire['color'],
-  answered: Set<string>,
-): boolean {
-  let lineRoot = leaf;
-  while (lineRoot.parent) lineRoot = lineRoot.parent;
-  if (
-    lineRoot.children.length > 0 &&
-    turnOf(lineRoot.fen) === color &&
-    !answered.has(lineRoot.key)
-  ) {
-    return true;
-  }
-  return pathTo(leaf).some(
-    (node) =>
-      node.children.length > 0 && turnOf(node.fen) === color && !answered.has(node.key),
-  );
+function pickRandom<T>(items: T[]): T | null {
+  if (items.length === 0) return null;
+  return items[Math.floor(Math.random() * items.length)] ?? null;
 }
 
-function takeRandomLine(
-  leaves: MoveNode[],
-  color: Repertoire['color'],
-  answered: Set<string>,
-  bag: MoveNode[],
-): MoveNode | null {
-  const eligible = leaves.filter((leaf) => lineHasUnanswered(leaf, color, answered));
-  if (eligible.length === 0) return null;
-  const eligibleKeys = new Set(eligible.map((leaf) => leaf.key));
-  for (let index = bag.length - 1; index >= 0; index -= 1) {
-    if (!eligibleKeys.has(bag[index]!.key)) bag.splice(index, 1);
-  }
-  if (bag.length === 0) bag.push(...shuffle(eligible));
-  return bag.pop() ?? eligible[0] ?? null;
+function lineHasQuiz(leaf: MoveNode, color: Repertoire['color']): boolean {
+  return lineQuizPositions(leaf, color).length > 0;
 }
 
-function randomLineUnder(node: MoveNode): MoveNode | null {
+function pickLineUnder(node: MoveNode, completed: Set<string>): MoveNode | null {
   const options = allLeaves(node);
-  return options[Math.floor(Math.random() * options.length)] ?? null;
+  const fresh = options.filter((leaf) => !completed.has(leaf.key));
+  return pickRandom(fresh.length > 0 ? fresh : options);
 }
 
 function nextOnLine(line: MoveNode | null, node: MoveNode): MoveNode | null {
@@ -231,11 +206,16 @@ function DrillSession({
   const color = repertoire.color;
   const positions = useMemo(() => quizPositions(root, color), [root, color]);
   const leaves = useMemo(() => allLeaves(root), [root]);
-  const lineBagRef = useRef<MoveNode[]>([]);
+  const trainLines = useMemo(
+    () => leaves.filter((leaf) => lineHasQuiz(leaf, color)),
+    [leaves, color],
+  );
+  const trainLineKeys = useMemo(
+    () => new Set(trainLines.map((leaf) => leaf.key)),
+    [trainLines],
+  );
   const [targetLine, setTargetLine] = useState<MoveNode | null>(() =>
-    mode === 'train'
-      ? takeRandomLine(leaves, color, new Set<string>(), lineBagRef.current)
-      : null,
+    mode === 'train' ? pickRandom(trainLines) : null,
   );
   const [targets] = useState<ReviewTarget[]>(() =>
     mode === 'review'
@@ -263,6 +243,7 @@ function DrillSession({
   const [flipped, setFlipped] = useState(false);
   const [shakeSignal, setShakeSignal] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
+  const [completedLineCount, setCompletedLineCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
 
@@ -272,6 +253,7 @@ function DrillSession({
       : null,
   );
   const answeredRef = useRef<Set<string>>(new Set());
+  const completedLineKeysRef = useRef<Set<string>>(new Set());
   const streakRef = useRef(0);
   const bestStreakRef = useRef(0);
   const startRef = useRef(Date.now());
@@ -279,8 +261,11 @@ function DrillSession({
   const timersRef = useRef<number[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  const goal = mode === 'review' ? targets.length : Math.min(positions.length, TRAIN_LIMIT);
-  const shownAnswered = Math.min(answeredCount, goal);
+  const goal = mode === 'review' ? targets.length : trainLines.length;
+  const shownAnswered =
+    mode === 'review'
+      ? Math.min(answeredCount, goal)
+      : Math.min(completedLineCount, goal);
   const progress = goal > 0 ? Math.round((shownAnswered / goal) * 100) : 0;
   const orientation = flipped ? otherColor(color) : color;
   const turn = turnOf(current.fen);
@@ -339,9 +324,18 @@ function DrillSession({
     onComplete(snapshot);
   };
 
+  const markLineComplete = (line: MoveNode | null) => {
+    // Only lines with at least one position to recall count towards the
+    // session goal; a line that was merely auto-played must not finish it early.
+    if (!line || !trainLineKeys.has(line.key) || completedLineKeysRef.current.has(line.key)) return;
+    completedLineKeysRef.current.add(line.key);
+    setCompletedLineCount(completedLineKeysRef.current.size);
+  };
+
   const startNewRun = () => {
     if (finishedRef.current) return;
-    const nextLine = takeRandomLine(leaves, color, answeredRef.current, lineBagRef.current);
+    const remaining = trainLines.filter((leaf) => !completedLineKeysRef.current.has(leaf.key));
+    const nextLine = pickRandom(remaining);
     if (!nextLine) {
       finishSession();
       return;
@@ -359,10 +353,11 @@ function DrillSession({
     }
   };
 
-  const lineComplete = () => {
+  const lineComplete = (line: MoveNode | null = targetLine) => {
     if (mode === 'review') return;
     setPhase('transition');
-    if (answeredRef.current.size >= goal) {
+    markLineComplete(line);
+    if (completedLineKeysRef.current.size >= goal) {
       setFeedback({
         kind: 'line',
         text: 'Line complete',
@@ -374,7 +369,7 @@ function DrillSession({
     setFeedback({
       kind: 'line',
       text: 'Line complete',
-      detail: 'Next random line coming up.',
+      detail: 'Next line coming up.',
     });
     schedule(startNewRun, 500);
   };
@@ -401,8 +396,12 @@ function DrillSession({
       return;
     }
 
+    if (child.key === targetLine?.key) {
+      lineComplete(targetLine);
+      return;
+    }
     if (child.children.length === 0) {
-      lineComplete();
+      lineComplete(child);
       return;
     }
     if (turnOf(child.fen) === color) {
@@ -449,7 +448,9 @@ function DrillSession({
 
     const onTargetLine = targetChild?.key === child.key;
     if (!onTargetLine) {
-      const nextLine = randomLineUnder(child);
+      // The user recalled a repertoire move from a different branch. Continue
+      // on a line that contains that move, preferring one not drilled yet.
+      const nextLine = pickLineUnder(child, completedLineKeysRef.current);
       if (nextLine) setTargetLine(nextLine);
     }
 
@@ -563,13 +564,17 @@ function DrillSession({
   useEffect(() => {
     if (phase !== 'thinking' || mode !== 'train' || finishedRef.current) return;
     const timer = window.setTimeout(() => {
+      if (current.key === targetLine?.key) {
+        lineComplete(targetLine);
+        return;
+      }
       if (current.children.length === 0) {
-        lineComplete();
+        lineComplete(current);
         return;
       }
       let child = nextOnLine(targetLine, current);
       if (!child) {
-        const fallbackLine = randomLineUnder(current);
+        const fallbackLine = pickLineUnder(current, completedLineKeysRef.current);
         if (fallbackLine) {
           setTargetLine(fallbackLine);
           child = nextOnLine(fallbackLine, current);
@@ -582,8 +587,10 @@ function DrillSession({
       setPlayed((history) => [...history, child]);
       setCurrent(child);
 
-      if (child.children.length === 0) {
-        lineComplete();
+      if (child.key === targetLine?.key) {
+        lineComplete(targetLine);
+      } else if (child.children.length === 0) {
+        lineComplete(child);
       } else if (turnOf(child.fen) === color) {
         prepareEncounter(child);
         setPhase('playing');
@@ -679,7 +686,11 @@ function DrillSession({
         flipped={flipped}
         onFlip={() => setFlipped((value) => !value)}
         progress={progress}
-        progressLabel={`${shownAnswered} of ${goal} positions`}
+        progressLabel={
+          mode === 'review'
+            ? `${shownAnswered} of ${goal} positions`
+            : `${shownAnswered} of ${goal} lines`
+        }
         onEnd={handleEnd}
         endDisabled={phase === 'finished'}
       />
@@ -714,7 +725,7 @@ function DrillSession({
           <section className="card rep-mini-card">
             <div className="rep-mini-head">
               <img
-                src={`/pieces/staunty/${color}K.svg`}
+                src={pieceSrc(color, 'k')}
                 alt=""
                 className="side-king"
               />
@@ -1013,7 +1024,7 @@ function TrainHeader({
       </button>
       <div className="train-head-title">
         <span className={`side-badge ${repertoire.color}`}>
-          <img src={`/pieces/staunty/${repertoire.color}K.svg`} alt="" />
+          <img src={pieceSrc(repertoire.color, 'k')} alt="" />
         </span>
         <div>
           <h1>{repertoire.name}</h1>
@@ -1066,7 +1077,7 @@ function PlayerBar({
   return (
     <div className={`player-bar ${active ? 'is-active' : ''}`}>
       <span className={`player-avatar ${color}`}>
-        <img src={`/pieces/staunty/${color}K.svg`} alt="" />
+        <img src={pieceSrc(color, 'k')} alt="" />
       </span>
       <div className="player-info">
         <strong>{isUser ? 'You' : 'Repertoire'}</strong>

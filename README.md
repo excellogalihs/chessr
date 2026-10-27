@@ -8,7 +8,7 @@ while chessr auto-plays the opponent's replies. Every variation in the PGN stays
 - Variation-aware PGN import — builds one merged move tree from mainlines, sidelines and comments.
 - White or Black repertoires, with automatic opponent replies.
 - Interactive board with legal-move dots, drag or click moves, promotion picker, hints and arrows.
-- Spaced review for positions that are due, plus normal training runs that walk random lines.
+- Spaced review for positions that are due, plus training runs that drill every line to its end.
 - Progress per position: mastery levels 0–5, streaks, due dates and simple session summaries.
 - Line browser with search, board navigation and per-position recall details.
 - Local-first: repertoires, stats and streak activity live in `localStorage`.
@@ -33,6 +33,16 @@ bun run typecheck
 bun run build
 bun run preview
 ```
+
+## Deploying to GitHub Pages
+
+The production build uses relative asset paths, so it works from a project sub-path such as
+`https://<user>.github.io/chessr/`. The workflow in `.github/workflows/deploy.yml` builds the app
+and publishes `dist` on every push to `main`.
+
+One repository setting is required: in **Settings → Pages → Build and deployment**, set **Source**
+to **GitHub Actions** (not “Deploy from a branch”). Then run the **Deploy to GitHub Pages** workflow,
+or push to `main`, and the site will be available at `https://<user>.github.io/chessr/`.
 
 ## PGN notes
 

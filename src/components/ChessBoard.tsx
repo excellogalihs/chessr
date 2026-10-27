@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
+import { pieceSrc } from '../lib/assets';
 
 export interface BoardMove {
   from: Square;
@@ -197,7 +198,7 @@ export function ChessBoard({
     const startX = event.clientX;
     const startY = event.clientY;
     const ghostSize = rect.width;
-    const ghostSrc = `/pieces/staunty/${piece.color}${piece.type.toUpperCase()}.svg`;
+    const ghostSrc = pieceSrc(piece.color, piece.type);
 
     let active = false;
     let done = false;
@@ -376,8 +377,8 @@ export function ChessBoard({
             const isLast = lastMove?.from === square || lastMove?.to === square;
             const isCheck = checkSquare === square;
             const isHint = hintSquare === square;
-            const showFile = orientation === 'w' ? visualRow === 7 : visualRow === 7;
-            const showRank = orientation === 'w' ? visualCol === 0 : visualCol === 7;
+            const showFile = visualRow === 7;
+            const showRank = visualCol === 0;
 
             return (
               <button
@@ -408,7 +409,7 @@ export function ChessBoard({
                 {piece && (
                   <img
                     className="piece"
-                    src={`/pieces/staunty/${piece.color}${piece.type.toUpperCase()}.svg`}
+                    src={pieceSrc(piece.color, piece.type)}
                     alt=""
                     draggable={false}
                   />
@@ -461,7 +462,7 @@ export function ChessBoard({
                   onClick={() => emit(promotion.from, promotion.to, piece)}
                 >
                   <img
-                    src={`/pieces/staunty/${promotion.color}${piece.toUpperCase()}.svg`}
+                    src={pieceSrc(promotion.color, piece)}
                     alt={piece}
                   />
                 </button>

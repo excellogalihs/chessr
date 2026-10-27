@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import type { Color, Repertoire } from '../lib/types';
 import { parsePgn, quizPositions, sideName } from '../lib/chess';
 import { newId } from '../lib/storage';
+import { pieceSrc } from '../lib/assets';
 import { SAMPLE_BLACK_PGN, SAMPLE_WHITE_PGN } from '../lib/samples';
 import { IconCheck, IconInfo, IconSparkles, IconUpload, IconX } from './Icons';
 import { Modal } from './Modal';
@@ -84,11 +85,11 @@ export function ImportDialog({ onClose, onAdd }: ImportDialogProps) {
       <div className="sample-strip">
         <span>No PGN handy?</span>
         <button type="button" className="sample-chip" onClick={() => loadSample('white')}>
-          <img src="/pieces/staunty/wK.svg" alt="" />
+          <img src={pieceSrc('w', 'k')} alt="" />
           Italian · White
         </button>
         <button type="button" className="sample-chip" onClick={() => loadSample('black')}>
-          <img src="/pieces/staunty/bK.svg" alt="" />
+          <img src={pieceSrc('b', 'k')} alt="" />
           Caro-Kann · Black
         </button>
       </div>
@@ -114,7 +115,7 @@ export function ImportDialog({ onClose, onAdd }: ImportDialogProps) {
               className={`color-option ${color === 'w' ? 'active' : ''}`}
               onClick={() => setColor('w')}
             >
-              <img src="/pieces/staunty/wK.svg" alt="" />
+              <img src={pieceSrc('w', 'k')} alt="" />
               White
             </button>
             <button
@@ -122,7 +123,7 @@ export function ImportDialog({ onClose, onAdd }: ImportDialogProps) {
               className={`color-option ${color === 'b' ? 'active' : ''}`}
               onClick={() => setColor('b')}
             >
-              <img src="/pieces/staunty/bK.svg" alt="" />
+              <img src={pieceSrc('b', 'k')} alt="" />
               Black
             </button>
           </div>

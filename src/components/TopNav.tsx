@@ -1,3 +1,4 @@
+import { pieceSrc } from '../lib/assets';
 import { IconFlame, IconPlus, IconVolume, IconVolumeOff } from './Icons';
 
 interface TopNavProps {
@@ -26,7 +27,7 @@ export function TopNav({
       <div className="topbar-inner">
         <button type="button" className="brand" onClick={onHome} aria-label="chessr home">
           <span className="brand-mark">
-            <img src="/pieces/staunty/wN.svg" alt="" />
+            <img src={pieceSrc('w', 'n')} alt="" />
           </span>
           <span className="brand-word">chessr</span>
         </button>

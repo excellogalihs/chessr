@@ -59,6 +59,7 @@ export function parsePgn(input: string): ParsedGame {
   let last: MoveNode | null = null;
   let gameHadMoves = false;
   let broken = false;
+  let brokenDepth = -1;
   let moves = 0;
   let games = 0;
   let gameIndex = 1;
@@ -66,6 +67,13 @@ export function parsePgn(input: string): ParsedGame {
   let opening: string | undefined;
 
   const stack: { chess: Chess; current: MoveNode; last: MoveNode | null }[] = [];
+
+  // A "line" in the PGN is not necessarily a leaf of the merged tree: a short
+  // line can end at a position that another line continues from. Remember
+  // every real line ending so the trainer can drill each one to its own end.
+  const markLineEnd = (node: MoveNode | null) => {
+    if (!broken && node && node.ply > 0) node.isLineEnd = true;
+  };
 
   const resetGame = (countGame: boolean) => {
     if (countGame && gameHadMoves) {
@@ -77,6 +85,7 @@ export function parsePgn(input: string): ParsedGame {
     last = null;
     gameHadMoves = false;
     broken = false;
+    brokenDepth = -1;
     stack.length = 0;
   };
 
@@ -123,13 +132,16 @@ export function parsePgn(input: string): ParsedGame {
 
       // A new header block after moves means a new game even if the previous
       // game forgot its result token.
-      if (gameHadMoves) resetGame(true);
+      if (gameHadMoves) {
+        markLineEnd(last);
+        resetGame(true);
+      }
 
       const header = raw.match(/^\s*(\w+)\s+"((?:[^"\\]|\\.)*)"\s*$/s);
       if (!header) continue;
       const [, tag, value] = header;
-      if (tag === 'Event' && value && value !== '?') event = value;
-      if (tag === 'Opening' && value && value !== '?') opening = value;
+      if (tag === 'Event' && value && value !== '?' && !event) event = value;
+      if (tag === 'Opening' && value && value !== '?' && !opening) opening = value;
       if (tag === 'Variation' && value && value !== '?') {
         opening = opening ? `${opening}: ${value}` : value;
       }
@@ -149,11 +161,20 @@ export function parsePgn(input: string): ParsedGame {
 
     if (ch === ')') {
       i += 1;
+      // The move before a closing parenthesis is the end of that variation's
+      // line, even when the merged tree has children there from other lines.
+      markLineEnd(last);
       const state = stack.pop();
       if (state) {
         chess = state.chess;
         current = state.current;
         last = state.last;
+      }
+      // A bad move inside a variation should only discard that variation; the
+      // mainline (or an enclosing variation) can still be imported.
+      if (broken && stack.length < brokenDepth) {
+        broken = false;
+        brokenDepth = -1;
       }
       continue;
     }
@@ -169,13 +190,14 @@ export function parsePgn(input: string): ParsedGame {
 
     // Read a whitespace/comment/paren-delimited token.
     let j = i;
-    while (j < text.length && !/[\s(){}[\];]/.test(text[j] ?? '')) j += 1;
+    while (j < text.length && !/[\s(){}[\];$]/.test(text[j] ?? '')) j += 1;
     let token = text.slice(i, j);
     i = j;
 
     if (!token) continue;
 
     if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(token)) {
+      markLineEnd(last);
       resetGame(true);
       continue;
     }
@@ -219,6 +241,7 @@ export function parsePgn(input: string): ParsedGame {
         `Illegal or unreadable move "${token}" in game ${gameIndex} (after ${current.ply} plies).`,
       );
       broken = true;
+      brokenDepth = stack.length;
       continue;
     }
 
@@ -247,7 +270,10 @@ export function parsePgn(input: string): ParsedGame {
     gameHadMoves = true;
   }
 
-  if (gameHadMoves) games += 1;
+  if (gameHadMoves) {
+    markLineEnd(last);
+    games += 1;
+  }
 
   if (moves === 0 && errors.length === 0) {
     errors.push('No moves found. Paste a PGN with at least one move.');
@@ -264,9 +290,8 @@ export function parsePgn(input: string): ParsedGame {
   };
 }
 
-export function countLeaves(node: MoveNode): number {
-  if (node.children.length === 0) return node.ply === 0 ? 0 : 1;
-  return node.children.reduce((sum, child) => sum + countLeaves(child), 0);
+export function countLeaves(root: MoveNode): number {
+  return allLeaves(root).length;
 }
 
 export function countMoves(node: MoveNode): number {
@@ -283,17 +308,38 @@ export function pathTo(node: MoveNode): MoveNode[] {
   return path;
 }
 
+/**
+ * Positions on one specific PGN line where the user has to make a move.
+ * The line's final position is excluded, because there is no repertoire move
+ * to recall after the line has ended.
+ */
+export function lineQuizPositions(leaf: MoveNode, color: Color): MoveNode[] {
+  const positions: MoveNode[] = [];
+  let cursor: MoveNode | null = leaf;
+  while (cursor && cursor.parent) {
+    const before: MoveNode = cursor.parent;
+    if (turnOf(before.fen) === color && before.children.length > 0) {
+      positions.unshift(before);
+    }
+    cursor = before;
+  }
+  return positions;
+}
+
+/**
+ * Every PGN line end, in tree order. A line can end before a branch point, so
+ * this is not the same thing as the childless leaves of the merged tree.
+ */
 export function allLeaves(root: MoveNode): MoveNode[] {
-  const leaves: MoveNode[] = [];
+  const found: MoveNode[] = [];
   const walk = (node: MoveNode) => {
-    if (node.children.length === 0) {
-      if (node.ply > 0) leaves.push(node);
-      return;
+    if (node.ply > 0 && (node.isLineEnd || node.children.length === 0)) {
+      found.push(node);
     }
     for (const child of node.children) walk(child);
   };
   walk(root);
-  return leaves;
+  return found;
 }
 
 export function quizPositions(root: MoveNode, color: Color): QuizPosition[] {

@@ -15,6 +15,7 @@ import {
   turnOf,
 } from '../lib/chess';
 import { dateKey, type Activity } from '../lib/storage';
+import { pieceSrc } from '../lib/assets';
 import { HERO_FEN } from '../lib/samples';
 import { ChessBoard } from './ChessBoard';
 import { ProgressRing } from './ProgressRing';
@@ -163,6 +164,11 @@ export function Dashboard({
   const activeRep = activeStats.rep;
   const activePosition = representativePosition(activeStats.root);
   const activeOverview = repertoireStats(activeRep, activeStats.root);
+  // Totals cover every repertoire, so review should open the repertoire that
+  // actually has the most positions waiting rather than the active one.
+  const reviewSummary =
+    [...summaries].filter((summary) => summary.due > 0).sort((a, b) => b.due - a.due)[0] ??
+    activeStats;
 
   return (
     <div className="dashboard">
@@ -361,7 +367,7 @@ export function Dashboard({
             <button
               type="button"
               className="btn btn-primary btn-block"
-              onClick={() => onReview(activeRep.id)}
+              onClick={() => onReview(reviewSummary.rep.id)}
             >
               <IconClock size={16} />
               Start review
@@ -467,7 +473,7 @@ function RepertoireCard({
     <article className={`rep-card color-${rep.color}`}>
       <div className="rep-card-top">
         <span className={`side-badge ${rep.color}`}>
-          <img src={`/pieces/staunty/${rep.color}K.svg`} alt="" />
+          <img src={pieceSrc(rep.color, 'k')} alt="" />
         </span>
         <div className="rep-card-title">
           <h3>{rep.name}</h3>
