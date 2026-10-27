@@ -34,25 +34,8 @@ bun run build
 bun run preview
 ```
 
-## Deploying to GitHub Pages
-
-The production build uses relative asset paths, so it works from a project sub-path such as
-`https://<user>.github.io/chessr/`. The workflow in `.github/workflows/deploy.yml` builds the app
-and publishes `dist` on every push to `main`.
-
-One repository setting is required: in **Settings → Pages → Build and deployment**, set **Source**
-to **GitHub Actions** (not “Deploy from a branch”). Then run the **Deploy to GitHub Pages** workflow,
-or push to `main`, and the site will be available at `https://<user>.github.io/chessr/`.
-
 ## PGN notes
 
 PGN comments are preserved as position notes. Engine directives such as `[%clk ...]` and
 `[%eval ...]` are stripped when the PGN is parsed. Click the **Italian · White** or
 **Caro-Kann · Black** sample in the import dialog to try the trainer immediately.
-
-## Project layout
-
-- `src/components` — board, dashboard, trainer, browser, import and dialog UI.
-- `src/lib/chess.ts` — PGN parser, move tree helpers, spaced-repetition and stats logic.
-- `src/lib/storage.ts` — localStorage persistence and daily activity.
-- `src/styles` — base design system plus dashboard, trainer and browser styles.
