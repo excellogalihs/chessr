@@ -24,7 +24,7 @@ import {
   otherColor,
 } from '../lib/chess';
 import { pieceSrc } from '../lib/assets';
-import { playSound } from '../lib/sound';
+import { playMoveSound, playSound, preloadSounds } from '../lib/sound';
 import { ChessBoard, type BoardMove } from './ChessBoard';
 import { ProgressRing } from './ProgressRing';
 import {
@@ -469,7 +469,7 @@ function DrillSession({
 
     onUpdateStat(current.key, (stat) => recordCorrect(stat, firstTry));
     markAnswered(current);
-    playSound('correct', muted);
+    playMoveSound(child.san, true, muted);
 
     if (firstTry) {
       streakRef.current += 1;
@@ -522,7 +522,7 @@ function DrillSession({
       detail: "We've played it for you. This position will come back soon.",
     });
     setHintLevel(0);
-    playSound('move', muted);
+    playMoveSound(bestMove.san, true, muted);
     playMove(bestMove);
     schedule(() => continueAfterResolvedMove(bestMove), 800);
   };
@@ -557,6 +557,7 @@ function DrillSession({
   };
 
   useEffect(() => {
+    preloadSounds();
     return () => clearTimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -583,7 +584,7 @@ function DrillSession({
       if (!child) child = current.children[Math.floor(Math.random() * current.children.length)] ?? null;
       if (!child) return;
 
-      playSound('move', muted);
+      playMoveSound(child.san, false, muted);
       setPlayed((history) => [...history, child]);
       setCurrent(child);
 
@@ -777,6 +778,7 @@ function DrillSession({
               orientation={orientation}
               interactive={phase === 'playing' && turn === color}
               movableColor={color}
+              onIllegal={() => playSound('illegal', muted)}
               lastMove={
                 current.uci
                   ? { from: current.uci.slice(0, 2), to: current.uci.slice(2, 4) }

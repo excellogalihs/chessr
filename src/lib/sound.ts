@@ -1,67 +1,54 @@
-type Sound = 'move' | 'correct' | 'wrong' | 'win';
+// chess.com default sound set (served from /public/sounds).
+type Sound =
+  | 'move-self'
+  | 'move-opponent'
+  | 'capture'
+  | 'castle'
+  | 'move-check'
+  | 'promote'
+  | 'illegal'
+  | 'notify';
 
-let ctx: AudioContext | null = null;
+const cache = new Map<Sound, HTMLAudioElement>();
 
-function audio(): AudioContext | null {
+function base(name: Sound): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
-  try {
-    if (!ctx) {
-      const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return null;
-      ctx = new Ctor();
-    }
-    if (ctx.state === 'suspended') void ctx.resume();
-    return ctx;
-  } catch {
-    return null;
+  let el = cache.get(name);
+  if (!el) {
+    el = new Audio(`/sounds/${name}.mp3`);
+    el.preload = 'auto';
+    cache.set(name, el);
   }
+  return el;
 }
 
-function tone(
-  context: AudioContext,
-  frequency: number,
-  offset: number,
-  duration: number,
-  type: OscillatorType,
-  volume: number,
-) {
-  const osc = context.createOscillator();
-  const gain = context.createGain();
-  const start = context.currentTime + offset;
-  osc.type = type;
-  osc.frequency.setValueAtTime(frequency, start);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain);
-  gain.connect(context.destination);
-  osc.start(start);
-  osc.stop(start + duration + 0.02);
+export function preloadSounds(): void {
+  (['move-self', 'move-opponent', 'capture', 'castle', 'move-check', 'promote', 'illegal', 'notify'] as Sound[]).forEach(
+    (s) => base(s)?.load(),
+  );
 }
 
-export function playSound(sound: Sound, muted: boolean): void {
+function play(name: Sound, muted: boolean) {
   if (muted) return;
-  const context = audio();
-  if (!context) return;
-  switch (sound) {
-    case 'move':
-      tone(context, 520, 0, 0.055, 'triangle', 0.035);
-      tone(context, 330, 0.018, 0.05, 'sine', 0.025);
-      break;
-    case 'correct':
-      tone(context, 523.25, 0, 0.12, 'sine', 0.05);
-      tone(context, 659.25, 0.08, 0.14, 'sine', 0.045);
-      tone(context, 783.99, 0.17, 0.18, 'sine', 0.04);
-      break;
-    case 'wrong':
-      tone(context, 196, 0, 0.16, 'triangle', 0.045);
-      tone(context, 155.56, 0.07, 0.2, 'sine', 0.035);
-      break;
-    case 'win':
-      tone(context, 523.25, 0, 0.14, 'sine', 0.045);
-      tone(context, 659.25, 0.1, 0.14, 'sine', 0.045);
-      tone(context, 783.99, 0.2, 0.16, 'sine', 0.04);
-      tone(context, 1046.5, 0.3, 0.3, 'sine', 0.035);
-      break;
-  }
+  const el = base(name);
+  if (!el) return;
+  const node = el.cloneNode(true) as HTMLAudioElement;
+  void node.play().catch(() => {});
+}
+
+/** Pick the chess.com sound for a SAN move, same priority as chess.com. */
+export function moveSoundFor(san: string, self: boolean): Sound {
+  if (san.includes('+') || san.includes('#')) return 'move-check';
+  if (san.includes('=')) return 'promote';
+  if (san.includes('x')) return 'capture';
+  if (san.startsWith('O-O')) return 'castle';
+  return self ? 'move-self' : 'move-opponent';
+}
+
+export function playMoveSound(san: string, self: boolean, muted: boolean): void {
+  play(moveSoundFor(san, self), muted);
+}
+
+export function playSound(sound: 'wrong' | 'win' | 'illegal', muted: boolean): void {
+  play(sound === 'win' ? 'notify' : 'illegal', muted);
 }

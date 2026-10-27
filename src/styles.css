@@ -844,6 +844,11 @@ kbd {
   pointer-events: none;
 }
 
+.square.is-animating {
+  overflow: visible;
+  z-index: 20;
+}
+
 .drag-ghost {
   position: fixed;
   top: 0;

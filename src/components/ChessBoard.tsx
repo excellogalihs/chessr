@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useId,
   useMemo,
   useRef,
@@ -32,6 +33,7 @@ interface ChessBoardProps {
   shakeSignal?: number;
   className?: string;
   onMove?: (move: BoardMove) => void;
+  onIllegal?: () => void;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -58,6 +60,7 @@ export function ChessBoard({
   shakeSignal = 0,
   className = '',
   onMove,
+  onIllegal,
 }: ChessBoardProps) {
   const [selected, setSelected] = useState<Square | null>(null);
   const [promotion, setPromotion] = useState<{ from: Square; to: Square; color: Color } | null>(null);
@@ -65,6 +68,8 @@ export function ChessBoard({
   const boardRef = useRef<HTMLDivElement>(null);
   const cleanupDragRef = useRef<(() => void) | null>(null);
   const suppressClickRef = useRef(false);
+  const droppedByDragRef = useRef(false);
+  const prevPiecesRef = useRef<Map<string, { color: Color; type: PieceSymbol }> | null>(null);
   const markerId = useId().replace(/:/g, '');
 
   const chess = useMemo(() => {
@@ -127,6 +132,36 @@ export function ChessBoard({
     return () => window.clearTimeout(timer);
   }, [shakeSignal]);
 
+  // Slide the moved piece from its origin square (click moves, opponent moves).
+  useLayoutEffect(() => {
+    const prev = prevPiecesRef.current;
+    prevPiecesRef.current = boardPieces;
+    const fromDrag = droppedByDragRef.current;
+    droppedByDragRef.current = false;
+    if (!prev || fromDrag || !lastMove || !boardRef.current) return;
+    const moved = boardPieces.get(lastMove.to);
+    const was = prev.get(lastMove.from);
+    if (!moved || !was || was.color !== moved.color || boardPieces.get(lastMove.from)) return;
+    const board = boardRef.current;
+    const toEl = board.querySelector<HTMLElement>(`[data-square="${lastMove.to}"]`);
+    const fromEl = board.querySelector<HTMLElement>(`[data-square="${lastMove.from}"]`);
+    const img = toEl?.querySelector<HTMLElement>('.piece');
+    if (!toEl || !fromEl || !img || typeof img.animate !== 'function') return;
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    const distance = Math.hypot(dx, dy) / Math.max(1, b.width);
+    toEl.classList.add('is-animating');
+    const anim = img.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+      { duration: Math.min(190, 110 + distance * 14), easing: 'cubic-bezier(0.25, 0.8, 0.3, 1)' },
+    );
+    const done = () => toEl.classList.remove('is-animating');
+    anim.onfinish = done;
+    anim.oncancel = done;
+  }, [boardPieces, lastMove?.from, lastMove?.to]);
+
   const turn = chess.turn();
   const canGrab = (pieceColor: Color | undefined): boolean =>
     interactive &&
@@ -154,6 +189,7 @@ export function ChessBoard({
     const candidates = moves.filter((move) => move.to === to);
     if (candidates.length === 0) {
       setSelected(null);
+      onIllegal?.();
       return;
     }
     if (candidates.some((move) => move.promotion)) {
@@ -324,12 +360,18 @@ export function ChessBoard({
 
       const drop = () => {
         cleanupDragRef.current = null;
-        if (wantsMove && target) attempt(square, target);
-        else setSelected(square);
+        if (wantsMove && target) {
+          droppedByDragRef.current = true;
+          attempt(square, target);
+        } else {
+          if (target && target !== square && interactive) onIllegal?.();
+          setSelected(square);
+        }
         restore();
       };
 
-      if (!ghost) {
+      if (!ghost || wantsMove) {
+        // Legal drop: snap instantly, like chess.com.
         drop();
         return;
       }
