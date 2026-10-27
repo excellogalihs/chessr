@@ -164,6 +164,14 @@ export function ChessBoard({
     emit(from, to);
   };
 
+  const canMoveTo = (from: Square, to: Square): boolean => {
+    try {
+      return chess.moves({ square: from, verbose: true }).some((move) => move.to === to);
+    } catch {
+      return false;
+    }
+  };
+
   const onSquareClick = (square: Square) => {
     if (suppressClickRef.current) {
       suppressClickRef.current = false;
@@ -204,6 +212,10 @@ export function ChessBoard({
     let done = false;
     let hover: Square | null = null;
     let ghost: HTMLDivElement | null = null;
+    let frame = 0;
+    let settleTimer = 0;
+    let pendingX = 0;
+    let pendingY = 0;
 
     const squareAt = (x: number, y: number): Square | null => {
       const element = document.elementFromPoint(x, y);
@@ -224,13 +236,26 @@ export function ChessBoard({
       }
     };
 
-    const positionGhost = (x: number, y: number) => {
+    const paintGhost = () => {
       if (!ghost) return;
-      ghost.style.transform = `translate3d(${x - offsetX}px, ${y - offsetY}px, 0)`;
+      ghost.style.transform = `translate3d(${pendingX - offsetX}px, ${pendingY - offsetY}px, 0)`;
+    };
+
+    const positionGhost = (x: number, y: number) => {
+      pendingX = x;
+      pendingY = y;
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        paintGhost();
+        setHover(squareAt(pendingX, pendingY));
+      });
     };
 
     const startGhost = (x: number, y: number) => {
       active = true;
+      pendingX = x;
+      pendingY = y;
       ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
       ghost.style.width = `${ghostSize}px`;
@@ -241,12 +266,20 @@ export function ChessBoard({
       image.draggable = false;
       ghost.appendChild(image);
       document.body.appendChild(ghost);
-      positionGhost(x, y);
+      paintGhost();
       document.body.classList.add('is-dragging-piece');
       if (sourcePiece) sourcePiece.style.opacity = '0';
     };
 
     const restore = () => {
+      if (settleTimer) {
+        window.clearTimeout(settleTimer);
+        settleTimer = 0;
+      }
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
       setHover(null);
       if (ghost) {
         ghost.remove();
@@ -257,6 +290,10 @@ export function ChessBoard({
     };
 
     const removeListeners = () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerCancel);
@@ -268,20 +305,50 @@ export function ChessBoard({
       done = true;
       const target = x === null || y === null ? null : squareAt(x, y);
       removeListeners();
-      cleanupDragRef.current = null;
-      restore();
-      if (!active) return;
+      if (!active) {
+        cleanupDragRef.current = null;
+        return;
+      }
 
       suppressClickRef.current = true;
       window.setTimeout(() => {
         suppressClickRef.current = false;
       }, 0);
 
-      if (target && target !== square) {
-        attempt(square, target);
-      } else {
-        setSelected(square);
+      const wantsMove = !!target && target !== square && canMoveTo(square, target);
+      const targetElement =
+        wantsMove && target
+          ? boardRef.current?.querySelector<HTMLElement>(`[data-square="${target}"]`)
+          : null;
+      const destination = targetElement?.getBoundingClientRect() ?? rect;
+
+      const drop = () => {
+        cleanupDragRef.current = null;
+        if (wantsMove && target) attempt(square, target);
+        else setSelected(square);
+        restore();
+      };
+
+      if (!ghost) {
+        drop();
+        return;
       }
+
+      // Keep the piece under the cursor for its last frame, then glide it into
+      // the drop square (or back home when the drop is not a legal move).
+      ghost.style.transition = 'none';
+      ghost.style.transform = `translate3d(${(x ?? pendingX) - offsetX}px, ${(y ?? pendingY) - offsetY}px, 0)`;
+      void ghost.offsetWidth;
+      ghost.style.transition = 'transform 110ms cubic-bezier(0.22, 0.85, 0.3, 1)';
+      ghost.style.transform = `translate3d(
+        ${destination.left + (destination.width - ghostSize) / 2}px,
+        ${destination.top + (destination.height - ghostSize) / 2}px,
+        0
+      )`;
+      settleTimer = window.setTimeout(() => {
+        settleTimer = 0;
+        drop();
+      }, 110);
     };
 
     function onPointerMove(moveEvent: PointerEvent) {
@@ -294,7 +361,6 @@ export function ChessBoard({
       }
       moveEvent.preventDefault();
       positionGhost(moveEvent.clientX, moveEvent.clientY);
-      setHover(squareAt(moveEvent.clientX, moveEvent.clientY));
     }
 
     function onPointerUp(upEvent: PointerEvent) {
@@ -311,9 +377,10 @@ export function ChessBoard({
     }
 
     cleanupDragRef.current = () => {
-      if (done) return;
-      done = true;
-      removeListeners();
+      if (!done) {
+        done = true;
+        removeListeners();
+      }
       cleanupDragRef.current = null;
       restore();
     };
@@ -371,9 +438,6 @@ export function ChessBoard({
             const rankIndex = RANKS.indexOf(rank);
             const light = isLightSquare(fileIndex, rankIndex);
             const isSelected = selected === square;
-            const targetMoves = legalTargets.get(square);
-            const isTarget = !!targetMoves;
-            const isCapture = targetMoves?.some((move) => !!move.captured) ?? false;
             const isLast = lastMove?.from === square || lastMove?.to === square;
             const isCheck = checkSquare === square;
             const isHint = hintSquare === square;
@@ -403,9 +467,6 @@ export function ChessBoard({
               >
                 {showFile && <span className="coord coord-file">{file}</span>}
                 {showRank && <span className="coord coord-rank">{rank}</span>}
-                {isTarget && (
-                  <span className={`move-dot ${isCapture ? 'capture' : ''}`} aria-hidden="true" />
-                )}
                 {piece && (
                   <img
                     className="piece"
