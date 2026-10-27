@@ -21,6 +21,7 @@ import { TopNav } from './components/TopNav';
 import { ImportDialog } from './components/ImportDialog';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { Toast, type ToastState } from './components/Toast';
+import { unlockAudio } from './lib/sound';
 
 type View =
   | { kind: 'home' }
@@ -57,6 +58,16 @@ export default function App() {
   useEffect(() => {
     saveMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   useEffect(() => {
     if (view.kind !== 'home' && !repertoires.some((rep) => rep.id === view.repId)) {
@@ -143,7 +154,10 @@ export default function App() {
 
   const onImport = useCallback(() => setImportOpen(true), []);
   const onHome = useCallback(() => setView({ kind: 'home' }), []);
-  const toggleMute = useCallback(() => setMuted((value) => !value), []);
+  const toggleMute = useCallback(() => {
+    unlockAudio();
+    setMuted((value) => !value);
+  }, []);
   const closeToast = useCallback(() => setToast(null), []);
 
   return (
