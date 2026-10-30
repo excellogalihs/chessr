@@ -12,3 +12,6 @@ while chessr auto-plays the opponent's replies. Every variation in the PGN stays
 - Progress per position: mastery levels 0–5, streaks, due dates and simple session summaries.
 - Line browser with search, board navigation and per-position recall details.
 - Local-first: repertoires, stats and streak activity live in `localStorage`.
+
+## Website
+excellogalihs.github.io/chessr
