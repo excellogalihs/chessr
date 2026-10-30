@@ -63,3 +63,14 @@ export interface SessionSummary {
   bestStreak: number;
   durationMs: number;
 }
+
+export type LessonStep =
+  | { type: 'intro'; id: string; title: string; body: string[]; fen?: string }
+  | { type: 'quiz'; id: string; title: string; body: string[]; fen: string; answerFrom: string; answerTo: string; answerSan: string; hint: string };
+
+export interface Lesson {
+  id: string;
+  title: string;
+  tagline: string;
+  steps: LessonStep[];
+}

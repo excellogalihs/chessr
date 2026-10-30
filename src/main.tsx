@@ -4,6 +4,7 @@ import './styles.css';
 import './styles/dashboard.css';
 import './styles/trainer.css';
 import './styles/browse.css';
+import './styles/learn.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element not found');

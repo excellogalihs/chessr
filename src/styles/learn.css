@@ -1,0 +1,54 @@
+/* =========================================================
+   learn
+   ========================================================= */
+
+.learn-menu {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.learn-grid {
+  margin-top: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.learn-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.learn-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.learn-card-meta .status-chip {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.learn-card.status-progress .how-icon {
+  color: var(--gold);
+}
+
+.learn-card.status-done .how-icon {
+  color: var(--mint);
+}
+
+/* The lesson session reuses the trainer layout for a familiar feel. */
+
+.learn-page .drill-card {
+  min-height: 320px;
+}
+
+.learn-page .history-card {
+  min-height: 200px;
+}

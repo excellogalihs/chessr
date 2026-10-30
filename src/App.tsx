@@ -6,16 +6,20 @@ import {
   dateKey,
   dayStreak,
   loadActivity,
+  loadLessonProgress,
   loadMuted,
   loadRepertoires,
   newId,
   saveActivity,
+  saveLessonProgress,
   saveMuted,
   saveRepertoires,
   type Activity,
+  type LessonProgressMap,
 } from './lib/storage';
 import { Dashboard } from './components/Dashboard';
 import { Browse } from './components/Browse';
+import { Learn } from './components/Learn';
 import { Trainer } from './components/Trainer';
 import { TopNav } from './components/TopNav';
 import { ImportDialog } from './components/ImportDialog';
@@ -26,11 +30,13 @@ import { unlockAudio } from './lib/sound';
 type View =
   | { kind: 'home' }
   | { kind: 'train'; repId: string; mode: 'train' | 'review' }
-  | { kind: 'browse'; repId: string };
+  | { kind: 'browse'; repId: string }
+  | { kind: 'learn' };
 
 export default function App() {
   const [repertoires, setRepertoires] = useState<Repertoire[]>(() => loadRepertoires());
   const [activity, setActivity] = useState<Activity>(() => loadActivity());
+  const [lessonProgress, setLessonProgress] = useState<LessonProgressMap>(() => loadLessonProgress());
   const [muted, setMuted] = useState<boolean>(() => loadMuted());
   const [view, setView] = useState<View>({ kind: 'home' });
   const [importOpen, setImportOpen] = useState(false);
@@ -56,6 +62,10 @@ export default function App() {
   }, [activity]);
 
   useEffect(() => {
+    saveLessonProgress(lessonProgress);
+  }, [lessonProgress]);
+
+  useEffect(() => {
     saveMuted(muted);
   }, [muted]);
 
@@ -70,13 +80,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (view.kind !== 'home' && !repertoires.some((rep) => rep.id === view.repId)) {
+    if (view.kind !== 'home' && view.kind !== 'learn' && !repertoires.some((rep) => rep.id === view.repId)) {
       setView({ kind: 'home' });
     }
   }, [repertoires, view]);
 
   const activeRep = useMemo(
-    () => (view.kind === 'home' ? null : repertoires.find((rep) => rep.id === view.repId) ?? null),
+    () => (view.kind === 'home' || view.kind === 'learn' ? null : repertoires.find((rep) => rep.id === view.repId) ?? null),
     [repertoires, view],
   );
 
@@ -105,6 +115,22 @@ export default function App() {
           : rep,
       ),
     );
+    setActivity((previous) => {
+      const key = dateKey();
+      return { ...previous, [key]: (previous[key] ?? 0) + 1 };
+    });
+  }, []);
+
+  const handleStepComplete = useCallback((lessonId: string, stepId: string) => {
+    setLessonProgress((previous) => {
+      const steps = previous[lessonId] ?? [];
+      if (steps.includes(stepId)) return previous;
+      return { ...previous, [lessonId]: [...steps, stepId] };
+    });
+  }, []);
+
+  const handleLessonComplete = useCallback((lessonId: string) => {
+    setLessonProgress((previous) => ({ ...previous, [lessonId]: [...(previous[lessonId] ?? [])] }));
     setActivity((previous) => {
       const key = dateKey();
       return { ...previous, [key]: (previous[key] ?? 0) + 1 };
@@ -147,13 +173,14 @@ export default function App() {
   const confirmDelete = () => {
     if (!repToDelete) return;
     setRepertoires((previous) => previous.filter((rep) => rep.id !== repToDelete.id));
-    if (view.kind !== 'home' && view.repId === repToDelete.id) setView({ kind: 'home' });
+    if (view.kind !== 'home' && view.kind !== 'learn' && view.repId === repToDelete.id) setView({ kind: 'home' });
     setDeleteId(null);
     showToast(`Deleted “${repToDelete.name}”`, 'info');
   };
 
   const onImport = useCallback(() => setImportOpen(true), []);
   const onHome = useCallback(() => setView({ kind: 'home' }), []);
+  const onLearn = useCallback(() => setView({ kind: 'learn' }), []);
   const toggleMute = useCallback(() => {
     unlockAudio();
     setMuted((value) => !value);
@@ -189,6 +216,17 @@ export default function App() {
             onReview={(id) => setView({ kind: 'train', repId: id, mode: 'review' })}
             onBrowse={(id) => setView({ kind: 'browse', repId: id })}
             onDelete={setDeleteId}
+            onLearn={onLearn}
+          />
+        )}
+
+        {view.kind === 'learn' && (
+          <Learn
+            muted={muted}
+            progress={lessonProgress}
+            onExit={onHome}
+            onStepComplete={handleStepComplete}
+            onLessonComplete={handleLessonComplete}
           />
         )}
 
