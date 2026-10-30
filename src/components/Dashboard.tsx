@@ -183,10 +183,6 @@ export function Dashboard({
           <p>Your lines are ready. A focused session now keeps them automatic later.</p>
         </div>
         <div className="page-head-actions">
-          <button type="button" className="btn btn-ghost" onClick={onImport}>
-            <IconUpload size={16} />
-            Import PGN
-          </button>
           <button type="button" className="btn btn-primary" onClick={onImport}>
             <IconPlus size={16} />
             New repertoire
@@ -438,10 +434,6 @@ export function Dashboard({
             <h2>Your repertoires</h2>
             <p>{repertoires.length} built · every branch drillable</p>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onImport}>
-            <IconPlus size={15} />
-            Add repertoire
-          </button>
         </div>
 
         <div className="repertoire-grid">
@@ -663,20 +655,6 @@ function EmptyDashboard({ onImport, onSample, onLearn }: { onImport: () => void;
           <h3>Remember longer</h3>
           <p>Spaced review brings back weak positions exactly when they're about to fade.</p>
         </article>
-      </section>
-
-      <section className="landing-note">
-        <div>
-          <h2>Built for the lines you actually play.</h2>
-          <p>
-            No opening database to wade through. No engine verdicts. Just your repertoire,
-            transformed into a drill that knows exactly where you hesitated.
-          </p>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={onImport}>
-          Start building
-          <IconArrowRight size={16} />
-        </button>
       </section>
     </div>
   );

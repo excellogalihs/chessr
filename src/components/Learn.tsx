@@ -164,7 +164,6 @@ export function Learn({ muted, progress, onExit, onStepComplete, onLessonComplet
     setBestStreak(0);
     streakRef.current = 0;
     bestStreakRef.current = 0;
-    startRef.current = Date.now();
     finishedRef.current = false;
   };
 
@@ -173,6 +172,8 @@ export function Learn({ muted, progress, onExit, onStepComplete, onLessonComplet
     const startAt = firstIncompleteIndex(nextLesson, progress[nextLesson.id] ?? []);
     setLessonIndex(index);
     setStepIndex(startAt);
+    startRef.current = Date.now();
+    finishedRef.current = false;
     const firstStep = nextLesson.steps[startAt];
     if (firstStep.type === 'quiz') startQuiz(nextLesson, startAt);
     else {
@@ -302,6 +303,7 @@ export function Learn({ muted, progress, onExit, onStepComplete, onLessonComplet
     if (phase !== 'answering') return;
     const step = lesson?.steps[stepIndex];
     if (step?.type !== 'quiz') return;
+    if (hintLevel >= 2) return;
     const nextLevel = (hintLevel + 1) as 0 | 1 | 2;
     setHintLevel(nextLevel);
     if (nextLevel === 1) {
@@ -351,7 +353,7 @@ export function Learn({ muted, progress, onExit, onStepComplete, onLessonComplet
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, hintLevel]);
 
   if (lessonIndex === null || !lesson) {
     return <LearnMenu progress={progress} onExit={onExit} onSelect={startLesson} />;
@@ -363,7 +365,7 @@ export function Learn({ muted, progress, onExit, onStepComplete, onLessonComplet
   const orientation = flipped ? (chessColor(fen) === 'w' ? 'b' : 'w') : 'w';
 
   const statusCopy: Record<string, { title: string; detail: string }> = {
-    intro: { title: step.type === 'intro' ? step.title : 'Lesson intro', detail: step.type === 'intro' ? (step.body[0] ?? '') : 'Read the step, then answer the quiz when it appears.' },
+    intro: { title: step.type === 'intro' ? step.title : 'Lesson intro', detail: step.type === 'intro' ? step.body.join('\n') : 'Read the step, then answer the quiz when it appears.' },
     answering: { title: 'Your move', detail: 'Find the move the lesson is looking for.' },
     transition: { title: 'Nice work', detail: 'Moving on to the next step.' },
     finished: { title: 'Lesson complete', detail: 'Nicely done. Keep the momentum going.' },
