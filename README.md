@@ -14,4 +14,4 @@ while chessr auto-plays the opponent's replies. Every variation in the PGN stays
 - Local-first: repertoires, stats and streak activity live in `localStorage`.
 
 ## Website
-[excellogalihs.github.io/chessr](excellogalihs.github.io/chessr)
+[excellogalihs.github.io/chessr](https://excellogalihs.github.io/chessr)
