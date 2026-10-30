@@ -8,33 +8,6 @@ export interface PersistedState {
   repertoires: Repertoire[];
 }
 
-/** Completed step ids per lesson, e.g. `{ pieces: ['p-intro', 'p-rook'], ... }`. */
-export type LessonProgressMap = Record<string, string[]>;
-
-export function loadLessonProgress(): LessonProgressMap {
-  try {
-    const raw = localStorage.getItem('chessr:lessons:v1');
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as LessonProgressMap;
-    if (!parsed || typeof parsed !== 'object') return {};
-    const result: LessonProgressMap = {};
-    for (const [lessonId, steps] of Object.entries(parsed)) {
-      if (Array.isArray(steps)) result[lessonId] = steps.filter((stepId) => typeof stepId === 'string');
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-export function saveLessonProgress(progress: LessonProgressMap): void {
-  try {
-    localStorage.setItem('chessr:lessons:v1', JSON.stringify(progress));
-  } catch {
-    // ignore
-  }
-}
-
 export function loadRepertoires(): Repertoire[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

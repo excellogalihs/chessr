@@ -2,7 +2,7 @@ import { pieceSrc } from '../lib/assets';
 import { IconFlame, IconPlus, IconVolume, IconVolumeOff } from './Icons';
 
 interface TopNavProps {
-  view: 'home' | 'train' | 'browse' | 'learn';
+  view: 'home' | 'train' | 'browse';
   context?: string;
   streak: number;
   muted: boolean;
@@ -20,7 +20,7 @@ export function TopNav({
   onImport,
   onToggleMute,
 }: TopNavProps) {
-  const label = view === 'home' ? 'Dashboard' : view === 'train' ? 'Training' : view === 'browse' ? 'Repertoire' : 'Learn';
+  const label = view === 'home' ? 'Dashboard' : view === 'train' ? 'Training' : 'Repertoire';
 
   return (
     <header className="topbar">

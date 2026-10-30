@@ -45,7 +45,6 @@ interface DashboardProps {
   onReview: (id: string) => void;
   onBrowse: (id: string) => void;
   onDelete: (id: string) => void;
-  onLearn: () => void;
 }
 
 interface RepSummary {
@@ -133,7 +132,6 @@ export function Dashboard({
   onReview,
   onBrowse,
   onDelete,
-  onLearn,
 }: DashboardProps) {
   const summaries = useMemo(() => repertoires.map(summarize), [repertoires]);
   const totals = useMemo(() => aggregate(summaries), [summaries]);
@@ -159,7 +157,7 @@ export function Dashboard({
   })();
 
   if (repertoires.length === 0) {
-    return <EmptyDashboard onImport={onImport} onSample={onSample} onLearn={onLearn} />;
+    return <EmptyDashboard onImport={onImport} onSample={onSample} />;
   }
 
   const activeStats = active;
@@ -229,25 +227,6 @@ export function Dashboard({
           </div>
           <ProgressRing value={totals.mastery} size={46} stroke={5} />
         </div>
-      </section>
-
-      <section className="learn-banner">
-        <div className="learn-banner-copy">
-          <span className="eyebrow">
-            <IconBook size={14} /> New to chess?
-          </span>
-          <h2>
-            Learn the ropes with <span className="grad-text">bite-size lessons</span>
-          </h2>
-          <p>
-            Pieces, checkmates, basic principles and simple tactics — each with an interactive board that
-            teaches you the move before you play it.
-          </p>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={onLearn}>
-          <IconPlay size={16} />
-          Start learning
-        </button>
       </section>
 
       <section className="focus-grid">
@@ -549,7 +528,7 @@ function IconXSmall() {
   );
 }
 
-function EmptyDashboard({ onImport, onSample, onLearn }: { onImport: () => void; onSample: () => void; onLearn: () => void }) {
+function EmptyDashboard({ onImport, onSample }: { onImport: () => void; onSample: () => void }) {
   return (
     <div className="dashboard landing">
       <section className="hero">
@@ -572,10 +551,6 @@ function EmptyDashboard({ onImport, onSample, onLearn }: { onImport: () => void;
             <button type="button" className="btn btn-soft btn-lg" onClick={onSample}>
               <IconBook size={17} />
               Try a sample
-            </button>
-            <button type="button" className="btn btn-ghost btn-lg" onClick={onLearn}>
-              <IconPlay size={17} />
-              Learn chess
             </button>
           </div>
           <div className="hero-trust">

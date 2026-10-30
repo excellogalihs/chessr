@@ -119,43 +119,6 @@
   font-size: 11px;
 }
 
-/* ---------- learning banner ---------- */
-
-.learn-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 26px;
-  margin-bottom: 18px;
-  padding: 22px 26px;
-  border: 1px solid rgba(141, 183, 255, 0.16);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(141, 183, 255, 0.08), transparent 45%),
-    linear-gradient(155deg, #121f28, #0d141a 65%);
-}
-
-.learn-banner-copy {
-  min-width: 0;
-}
-
-.learn-banner h2 {
-  margin-top: 8px;
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2.2vw, 27px);
-  font-weight: 600;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
-}
-
-.learn-banner p {
-  margin-top: 6px;
-  color: var(--text-2);
-  font-size: 12.5px;
-  line-height: 1.55;
-  max-width: 560px;
-}
-
 /* ---------- focus area ---------- */
 
 .focus-grid {
@@ -1227,9 +1190,3 @@
   }
 }
 
-@media (max-width: 760px) {
-  .learn-banner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
